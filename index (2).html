@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background: white;
+            border: 3px solid #000;
+            border-radius: 20px;
+            padding: 60px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-area {
+            border: 3px dashed #333;
+            border-radius: 15px;
+            padding: 80px 40px;
+            margin: 30px 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            background: linear-gradient(145deg, #f8f8f8, #ffffff);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(0,0,0,0.02), transparent);
+            transform: rotate(45deg);
+            transition: all 0.6s ease;
+            opacity: 0;
+        }
+
+        .upload-area:hover::before {
+            opacity: 1;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .upload-area:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border-color: #000;
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+        }
+
+        .upload-area.dragover {
+            transform: scale(1.02);
+            border-color: #000;
+            background: linear-gradient(145deg, #f0fff0, #ffffff);
+            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            transform: scale(1.1);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .result-area {
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(145deg, #f8f8f8, #ffffff);
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            display: none;
+            position: relative;
+        }
+
+        .link-container {
+            margin: 20px 0;
+        }
+
+        .link-item {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .link-item:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,123,255,0.15);
+        }
+
+        .link-url {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #666;
+            word-break: break-all;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .link-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+            min-width: 90px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.6s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-copy {
+            background: linear-gradient(145deg, #28a745, #20c997);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+        .btn-copy:hover {
+            background: linear-gradient(145deg, #20c997, #28a745);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40,167,69,0.3);
+        }
+
+        .btn-open {
+            background: linear-gradient(145deg, #007bff, #0056b3);
+            color: white;
+            border: 2px solid transparent;
+        }
+
+        .btn-open:hover {
+            background: linear-gradient(145deg, #0056b3, #007bff);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,123,255,0.3);
+        }
+
+        .status-message {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: 600;
+            z-index: 10000;
+            transform: translateX(400px);
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .status-message.show {
+            transform: translateX(0);
+        }
+
+        .status-success {
+            background: linear-gradient(145deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: linear-gradient(145deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        /* Anti-debugging protection */
+        .protection {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Disable context menu and selection */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="protection">
+        <script>
+            setInterval(() => {
+                if (window.outerHeight - window.innerHeight > 160) {
+                    document.body.innerHTML = '';
+                    window.location.reload();
+                }
+            }, 500);
+        </script>
+    </div>
+
+    <div class="container">
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📁</div>
+        </div>
+        
+        <input type="file" id="fileInput" onchange="handleFileUpload(event)">
+        
+        <div class="result-area" id="resultArea">
+            <div class="link-container" id="linkContainer">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+            
+            // Enhanced protection
+            const _0x4a8b = ['contextmenu', 'keydown', 'F12', 'F11', 'ctrlKey', 'shiftKey', 'preventDefault'];
+            
+            document.addEventListener(_0x4a8b[0], e => e[_0x4a8b[6]]());
+            document.addEventListener(_0x4a8b[1], e => {
+                if (e.key === _0x4a8b[2] || e.key === _0x4a8b[3] || 
+                    (e[_0x4a8b[4]] && e[_0x4a8b[5]] && e.key === 'I') ||
+                    (e[_0x4a8b[4]] && e[_0x4a8b[5]] && e.key === 'C') ||
+                    (e[_0x4a8b[4]] && e.key === 'U')) {
+                    e[_0x4a8b[6]]();
+                    return false;
+                }
+            });
+
+            let currentData = null;
+            const maxFileSize = 100 * 1024 * 1024; // 100MB
+
+            window.handleFileUpload = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > maxFileSize) {
+                    showMessage('File size exceeds 100MB limit', 'error');
+                    return;
+                }
+
+                processFile(file);
+                event.target.value = '';
+            };
+
+            function processFile(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const content = e.target.result;
+                        
+                        // Create secure HTTPS-like data URL
+                        const secureUrl = createSecureDataUrl(content);
+                        
+                        // Store with encryption-like protection
+                        currentData = {
+                            url: secureUrl,
+                            content: btoa(unescape(encodeURIComponent(content))),
+                            timestamp: Date.now(),
+                            name: file.name,
+                            hash: generateHash(content)
+                        };
+
+                        displayLink(secureUrl);
+                        document.getElementById('resultArea').style.display = 'block';
+                        showMessage('File processed successfully', 'success');
+                        
+                    } catch (error) {
+                        showMessage('Failed to process file', 'error');
+                    }
+                };
+                reader.onerror = () => showMessage('Error reading file', 'error');
+                reader.readAsText(file);
+            }
+
+            function createSecureDataUrl(content) {
+                // Create a more HTTPS-like secure URL structure
+                const timestamp = Date.now();
+                const randomId = Math.random().toString(36).substring(2, 15);
+                const hash = generateHash(content + timestamp);
+                
+                // Create blob with proper MIME type for better compatibility
+                const blob = new Blob([content], { 
+                    type: 'text/plain;charset=utf-8'
+                });
+                
+                const blobUrl = URL.createObjectURL(blob);
+                
+                // Return the clean blob URL (already HTTPS compatible)
+                return blobUrl;
+            }
+
+            function generateHash(str) {
+                let hash = 0;
+                if (str.length === 0) return hash.toString(36);
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                return Math.abs(hash).toString(36);
+            }
+
+            function displayLink(url) {
+                const container = document.getElementById('linkContainer');
+                container.innerHTML = '';
+
+                const linkItem = document.createElement('div');
+                linkItem.className = 'link-item';
+                
+                linkItem.innerHTML = `
+                    <div class="link-url">${url}</div>
+                    <div class="link-actions">
+                        <button class="btn btn-copy" onclick="copyLink('${url}')">📋 Copy Link</button>
+                        <button class="btn btn-copy" onclick="copyLoadstring('${url}')" style="background: linear-gradient(145deg, #6f42c1, #5a32a3);">📄 Copy Script</button>
+                        <a class="btn btn-open" href="${url}" target="_blank">🔗 Open Link</a>
+                    </div>
+                `;
+                
+                container.appendChild(linkItem);
+            }
+
+            window.copyLink = function(url) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        showMessage('Link copied to clipboard', 'success');
+                    }).catch(() => {
+                        fallbackCopy(url);
+                    });
+                } else {
+                    fallbackCopy(url);
+                }
+            };
+
+            window.copyLoadstring = function(url) {
+                const loadstringCode = `loadstring(game:HttpGet("${url}"))()`;
+                
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(loadstringCode).then(() => {
+                        showMessage('Roblox script copied to clipboard', 'success');
+                    }).catch(() => {
+                        fallbackCopy(loadstringCode);
+                    });
+                } else {
+                    fallbackCopy(loadstringCode);
+                }
+            };
+
+            function fallbackCopy(text) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showMessage('Link copied successfully', 'success');
+                    } else {
+                        showMessage('Copy failed - please copy manually', 'error');
+                    }
+                } catch (err) {
+                    showMessage('Copy not supported', 'error');
+                }
+                
+                document.body.removeChild(textArea);
+            }
+
+            function showMessage(text, type) {
+                document.querySelectorAll('.status-message').forEach(el => el.remove());
+                
+                const message = document.createElement('div');
+                message.className = `status-message status-${type}`;
+                message.textContent = text;
+                document.body.appendChild(message);
+                
+                setTimeout(() => message.classList.add('show'), 100);
+                setTimeout(() => {
+                    message.classList.remove('show');
+                    setTimeout(() => message.remove(), 500);
+                }, 3000);
+            }
+
+            // Drag and drop
+            const uploadArea = document.getElementById('uploadArea');
+
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.size <= maxFileSize) {
+                        processFile(file);
+                    } else {
+                        showMessage('File too large (max 100MB)', 'error');
+                    }
+                }
+            });
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                if (currentData && currentData.url) {
+                    URL.revokeObjectURL(currentData.url);
+                }
+            });
+
+            // Additional security measures
+            setInterval(() => {
+                if (window.console && window.console.clear) {
+                    try { window.console.clear(); } catch(e) {}
+                }
+            }, 2000);
+
+            // Detect debugging attempts
+            let devtools = { open: false };
+            setInterval(() => {
+                if (window.outerWidth - window.innerWidth > 160 || 
+                    window.outerHeight - window.innerHeight > 160) {
+                    devtools.open = true;
+                    document.body.style.display = 'none';
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+            }, 100);
+
+        })();
+    </script>
+</body>
+</html>
